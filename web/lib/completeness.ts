@@ -30,12 +30,17 @@ export function checkAnswerCompleteness(text: string): CompletenessResult {
     return { complete: false, reason: "Contains marker text [[COVERED]] or [[NOT_COVERED]]" };
   }
 
-  // a) Terminal punctuation: ends with . ! ? or a closing $$ block (optionally followed by terminal punctuation)
+  // a) Terminal punctuation: ends with . ! ? or a closing $$ block (optionally followed by terminal punctuation or citation)
   // Markdown bold/italic/quotes/brackets after punctuation are allowed (e.g. "...end." or "...end**." or "...end.**")
+  // Citations at the end of a sentence or formula (e.g. "...equation [Mathematics, Ch 1, p. 3]" or "$$...$$ [Physics, Ch 4, p. 55]") are also complete.
+  // Inline formulas ending a bullet or statement (e.g. "3. $v^2 = v_0^2 + 2ax$") are also complete.
   const endsWithPunctuation =
     /[.!?]\s*(\*\*|\*|"|'|\)|\])*$/.test(trimmed) ||
     /\$\$\s*$/.test(trimmed) ||
-    /\$\$\s*[.!?]\s*$/.test(trimmed);
+    /\$\$\s*[.!?]\s*$/.test(trimmed) ||
+    /\$[^\$\n]+\$\s*$/.test(trimmed) ||
+    /\[[^\]]+\bpp?\.?\s*\d+[^\]]*\]\s*$/.test(trimmed) ||
+    /\$\$\s*\[[^\]]+\bpp?\.?\s*\d+[^\]]*\]\s*$/.test(trimmed);
 
   if (!endsWithPunctuation) {
     return {
@@ -101,6 +106,19 @@ export function checkAnswerCompleteness(text: string): CompletenessResult {
 
   for (const c of citationMatches) {
     const inner = c.slice(1, -1).trim();
+    // Skip external/web source labels (e.g. "[Source: Newton's Law | Physics | FuseSchool]", URLs, or pipe-separated source titles)
+    if (
+      inner.toLowerCase().startsWith("source:") ||
+      inner.toLowerCase().startsWith("web") ||
+      inner.includes("http") ||
+      inner.includes("|") ||
+      inner.includes(".com") ||
+      inner.includes(".org") ||
+      inner.includes(".edu")
+    ) {
+      continue;
+    }
+
     if (curriculumKeywords.test(inner)) {
       // Must contain Chapter/Ch <number> AND p./pp. <number>
       const hasChapter = /\b(?:ch|chapter)\.?\s*\d+\b/i.test(inner);

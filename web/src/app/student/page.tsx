@@ -38,6 +38,7 @@ import {
   Info,
   ExternalLink,
   Search,
+  Loader2,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Lightbox, LightboxFigure } from "@/components/Lightbox";
@@ -294,6 +295,7 @@ function StudentDashboardInner() {
   // Multi-Chat State
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const isSelfCreatedChatRef = useRef<string | null>(null);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
@@ -360,7 +362,9 @@ function StudentDashboardInner() {
           const cData = await chatsRes.json();
           setChats(cData.chats || []);
           if (cData.chats && cData.chats.length > 0 && !activeChatId) {
-            setActiveChatId(cData.chats[0].id);
+            const savedChatId = typeof window !== "undefined" ? localStorage.getItem("dumroo_student_active_chat") : null;
+            const targetChat = cData.chats.find((c: any) => c.id === savedChatId) || cData.chats[0];
+            setActiveChatId(targetChat.id);
           }
         }
         if (memRes.ok) {
@@ -379,6 +383,7 @@ function StudentDashboardInner() {
   useEffect(() => {
     if (!activeChatId) {
       setMessages([]);
+      setLoadingMessages(false);
       return;
     }
 
@@ -387,19 +392,39 @@ function StudentDashboardInner() {
       return;
     }
 
+    let isCancelled = false;
+    setLoadingMessages(true);
+    setMessages([]); // Immediately clear previous chat content to prevent stale body flash
+
     async function loadMessages() {
       try {
         const res = await fetch(`/api/chats/${activeChatId}/messages`);
-        if (res.ok) {
+        if (res.ok && !isCancelled) {
           const data = await res.json();
           setMessages(data.messages || []);
         }
       } catch (err) {
-        console.warn("Failed to load chat messages:", err);
+        if (!isCancelled) {
+          console.warn("Failed to load chat messages:", err);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingMessages(false);
+        }
       }
     }
 
     loadMessages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeChatId]);
+
+  useEffect(() => {
+    if (activeChatId && typeof window !== "undefined") {
+      localStorage.setItem("dumroo_student_active_chat", activeChatId);
+    }
   }, [activeChatId]);
 
   useEffect(() => {
@@ -1101,7 +1126,12 @@ function StudentDashboardInner() {
         {/* Message Feed / Empty State */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 scroll-smooth">
           <div className="max-w-[820px] mx-auto space-y-6">
-            {messages.length === 0 ? (
+            {loadingMessages ? (
+              <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
+                <Loader2 className="w-6 h-6 animate-spin text-[#1E4FF7]" />
+                <span className="text-xs">Loading conversation...</span>
+              </div>
+            ) : messages.length === 0 ? (
               /* EMPTY STATE */
               <div className="py-10 sm:py-16 text-center animate-fadeIn">
                 <div className="w-14 h-14 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-5 text-white shadow-md">

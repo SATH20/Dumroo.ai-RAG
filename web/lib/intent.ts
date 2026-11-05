@@ -62,7 +62,8 @@ Category (one word only: QUESTION, PERSONAL, SMALL_TALK, or OTHER):`;
     let result = "";
     for await (const chunk of streamGeminiAnswer(
       "You are a strict one-word intent classifier. Output only QUESTION, PERSONAL, SMALL_TALK, or OTHER.",
-      prompt
+      prompt,
+      { checkCompleteness: false }
     )) {
       result += chunk.delta;
     }

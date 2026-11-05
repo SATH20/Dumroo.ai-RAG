@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (intent === "OTHER") {
+    if (intent === "OTHER" && !webSearch) {
       const refusalText = "This topic isn't covered in your NCERT textbooks. Please ask questions related to your Class 11 curriculum.";
       let updatedFacts = studentFacts;
       if (activeUserId) {
