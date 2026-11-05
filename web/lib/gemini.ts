@@ -28,7 +28,7 @@ export function getChatModels(): string[] {
     .map((m) => m.trim())
     .filter((m) => m && m !== "gemini-flash-latest");
   if (models.length > 0) return models;
-  return ["gemini-3.5-flash", "gemini-flash-lite-latest", "gemini-3.1-flash-lite"];
+  return ["gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-3.5-flash-lite"];
 }
 
 // In-memory 10-minute cooldown cache for models that return 429
@@ -57,7 +57,7 @@ function buildGenerationConfig(model: string, maxTokens: number, temperature: nu
   };
   if (
     (model.includes("thinking") || model.includes("2.5") || model.includes("3.5")) &&
-    !model.includes("flash-lite-latest")
+    !model.includes("flash-lite")
   ) {
     config.thinkingConfig = { thinkingBudget: 0 };
   }
@@ -140,7 +140,7 @@ async function fetchChatWithModelAndKeyFallback(
 
   for (const model of models) {
     if (isModelInCooldown(model)) {
-      console.log(`[Gemini] Skipping ${model} (10m 429 cooldown active)`);
+      console.log(`[Gemini] Skipping ${model} (60s 429 cooldown active)`);
       continue;
     }
     let allKeys429 = true;
@@ -154,7 +154,7 @@ async function fetchChatWithModelAndKeyFallback(
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s TTFB timeout
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s TTFB timeout
 
         const response = await fetch(url, {
           method: "POST",
@@ -294,7 +294,8 @@ export function removeOverlap(base: string, continuation: string): string {
  */
 export async function* streamGeminiAnswer(
   systemInstruction: string,
-  userPrompt: string
+  userPrompt: string,
+  options?: { checkCompleteness?: boolean }
 ): AsyncIterable<StreamEventChunk> {
   const { response, modelUsed } = await fetchChatWithModelAndKeyFallback("streamGenerateContent?alt=sse", (model) => ({
     systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -361,6 +362,17 @@ export async function* streamGeminiAnswer(
   }
 
   console.log(`[Gemini Stream] Model ${modelUsed} finished with finishReason: ${lastFinishReason || "NONE"}`);
+
+  const shouldCheck = options?.checkCompleteness ?? true;
+  if (!shouldCheck) {
+    yield {
+      delta: "",
+      modelUsed,
+      isCutoff: false,
+      finishReason: lastFinishReason,
+    };
+    return;
+  }
 
   // Strip initial protocol marker before checking response completeness
   const cleanInitialForCheck = fullGeneratedText.replace(/^\s*\[\[(?:NOT_)?COVERED\]\]\s*/i, "");

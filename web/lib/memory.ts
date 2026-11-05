@@ -99,7 +99,8 @@ Extracted fact (or NONE):`;
     let output = "";
     for await (const chunk of streamGeminiAnswer(
       "You extract only durable student learning profile facts. Output only the fact or NONE.",
-      prompt
+      prompt,
+      { checkCompleteness: false }
     )) {
       output += chunk.delta;
     }
@@ -162,7 +163,8 @@ Updated concise summary:`;
     let summary = "";
     for await (const chunk of streamGeminiAnswer(
       "You are a concise academic conversation summarizer. Output only the updated 2-3 sentence summary.",
-      prompt
+      prompt,
+      { checkCompleteness: false }
     )) {
       summary += chunk.delta;
     }

@@ -607,82 +607,120 @@ Request: ${question}`;
   const topSimilarity = hits.length > 0 ? hits[0].similarity || 0 : 0;
 
   // Step 3: Refusal if top similarity < minSim (unless web search yielded results)
-  if ((topSimilarity < minSim || hits.length === 0) && (!webSearch || webSources.length === 0)) {
-    let unEnrolledRefusal: string | null = null;
+  if (topSimilarity < minSim || hits.length === 0) {
+    if (webSearch) {
+      if (webSources.length === 0) {
+        const webRefusalMessage = "I searched the web, but couldn't find a reliable answer for this topic. Please try rephrasing your search or checking textbook concepts.";
+        await logQuery({
+          subjectId: subjectIds && subjectIds.length === 1 ? subjectIds[0] : null,
+          query: standaloneQuery,
+          chapterIds: [],
+          sectionTitles: [],
+          answered: false,
+          topSimilarity,
+          userId,
+          chatId,
+        });
 
-    // Check if question scores >= 0.70 in an un-enrolled subject
-    if (subjectIds && subjectIds.length > 0) {
-      const { data: allSubjects } = await supabaseServer.from("subjects").select("id, name");
-      if (allSubjects && allSubjects.length > 0) {
-        const allowedSet = new Set(subjectIds);
-        const unEnrolledSubjects = allSubjects.filter((s) => !allowedSet.has(s.id));
-        if (unEnrolledSubjects.length > 0) {
-          const unEnrolledIds = unEnrolledSubjects.map((s) => s.id);
-          const { data: otherHits } = await supabaseServer.rpc("match_chunks", {
-            query_embedding: queryEmbedding,
-            subject_ids: unEnrolledIds,
-            k: 1,
-          });
-          const otherTopHit = Array.isArray(otherHits) && otherHits.length > 0 ? otherHits[0] : null;
-          if (otherTopHit && (otherTopHit.similarity || 0) >= 0.70) {
-            let foundSubjName = "";
-            const { data: bookRow } = await supabaseServer
-              .from("books")
-              .select("subject_id, subjects:subject_id (name)")
-              .eq("id", otherTopHit.book_id)
-              .single();
-            const rawSubj = (bookRow as any)?.subjects?.name || "";
-            if (rawSubj) {
-              foundSubjName = rawSubj.charAt(0).toUpperCase() + rawSubj.slice(1);
-            } else {
-              foundSubjName = otherTopHit.book_title || "another subject";
+        return {
+          standaloneQuery,
+          topSimilarity,
+          refusal: true,
+          refusalReason: "WEB_NO_RESULTS",
+          refusalText: webRefusalMessage,
+          metadata: {
+            standaloneQuery,
+            differsMaterially,
+            modelUsed: "none (web search returned 0 results)",
+            topSimilarity,
+            sources: [],
+            images: [],
+            pageImages: [],
+            sections: [],
+            webSources: [],
+            refusal: true,
+          } as RagMetadata,
+          stream: null,
+        };
+      }
+      // webSources.length > 0: proceed to answer using web knowledge!
+    } else {
+      let unEnrolledRefusal: string | null = null;
+
+      // Check if question scores >= 0.70 in an un-enrolled subject
+      if (subjectIds && subjectIds.length > 0) {
+        const { data: allSubjects } = await supabaseServer.from("subjects").select("id, name");
+        if (allSubjects && allSubjects.length > 0) {
+          const allowedSet = new Set(subjectIds);
+          const unEnrolledSubjects = allSubjects.filter((s) => !allowedSet.has(s.id));
+          if (unEnrolledSubjects.length > 0) {
+            const unEnrolledIds = unEnrolledSubjects.map((s) => s.id);
+            const { data: otherHits } = await supabaseServer.rpc("match_chunks", {
+              query_embedding: queryEmbedding,
+              subject_ids: unEnrolledIds,
+              k: 1,
+            });
+            const otherTopHit = Array.isArray(otherHits) && otherHits.length > 0 ? otherHits[0] : null;
+            if (otherTopHit && (otherTopHit.similarity || 0) >= 0.70) {
+              let foundSubjName = "";
+              const { data: bookRow } = await supabaseServer
+                .from("books")
+                .select("subject_id, subjects:subject_id (name)")
+                .eq("id", otherTopHit.book_id)
+                .single();
+              const rawSubj = (bookRow as any)?.subjects?.name || "";
+              if (rawSubj) {
+                foundSubjName = rawSubj.charAt(0).toUpperCase() + rawSubj.slice(1);
+              } else {
+                foundSubjName = otherTopHit.book_title || "another subject";
+              }
+              unEnrolledRefusal = `This topic is in ${foundSubjName}, which isn't part of your groups.`;
             }
-            unEnrolledRefusal = `This topic is in ${foundSubjName}, which isn't part of your groups.`;
           }
         }
       }
-    }
 
-    let refusalMessage = unEnrolledRefusal || REFUSAL_TEXT;
-    if (!unEnrolledRefusal && topSimilarity >= 0.60 && hits.length > 0) {
-      const candidateTitles = Array.from(
-        new Set(hits.slice(0, 3).map((h) => h.chapter_title).filter(Boolean))
-      );
-      if (candidateTitles.length > 0) {
-        refusalMessage += `\n\nClosest topics in your books: ${candidateTitles.join(", ")}`;
+      let refusalMessage = unEnrolledRefusal || REFUSAL_TEXT;
+      if (!unEnrolledRefusal && topSimilarity >= 0.60 && hits.length > 0) {
+        const candidateTitles = Array.from(
+          new Set(hits.slice(0, 3).map((h) => h.chapter_title).filter(Boolean))
+        );
+        if (candidateTitles.length > 0) {
+          refusalMessage += `\n\nClosest topics in your books: ${candidateTitles.join(", ")}`;
+        }
       }
-    }
 
-    await logQuery({
-      subjectId: subjectIds && subjectIds.length === 1 ? subjectIds[0] : null,
-      query: standaloneQuery,
-      chapterIds: [],
-      sectionTitles: [],
-      answered: false,
-      topSimilarity,
-      userId,
-      chatId,
-    });
-
-    return {
-      standaloneQuery,
-      topSimilarity,
-      refusal: true,
-      refusalReason: unEnrolledRefusal ? "UNENROLLED_GROUP" : "LOW_SIMILARITY",
-      refusalText: refusalMessage,
-      metadata: {
-        standaloneQuery,
-        differsMaterially,
-        modelUsed: "none (min_sim refusal)",
+      await logQuery({
+        subjectId: subjectIds && subjectIds.length === 1 ? subjectIds[0] : null,
+        query: standaloneQuery,
+        chapterIds: [],
+        sectionTitles: [],
+        answered: false,
         topSimilarity,
-        sources: [],
-        images: [],
-        pageImages: [],
-        sections: [],
+        userId,
+        chatId,
+      });
+
+      return {
+        standaloneQuery,
+        topSimilarity,
         refusal: true,
-      } as RagMetadata,
-      stream: null,
-    };
+        refusalReason: unEnrolledRefusal ? "UNENROLLED_GROUP" : "LOW_SIMILARITY",
+        refusalText: refusalMessage,
+        metadata: {
+          standaloneQuery,
+          differsMaterially,
+          modelUsed: "none (min_sim refusal)",
+          topSimilarity,
+          sources: [],
+          images: [],
+          pageImages: [],
+          sections: [],
+          refusal: true,
+        } as RagMetadata,
+        stream: null,
+      };
+    }
   }
 
   // Fetch subject map for subject names

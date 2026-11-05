@@ -129,11 +129,51 @@ interface ChatMessage {
   isError?: boolean;
 }
 
+function splitTeacherSections(content: string) {
+  const ncertHeaderMatch = content.match(/##\s*NCERT Curriculum Explanation/i);
+  const webHeaderMatch = content.match(/##\s*Supplementary Context from the Web/i);
+
+  if (ncertHeaderMatch && webHeaderMatch && (webHeaderMatch.index ?? 0) > (ncertHeaderMatch.index ?? 0)) {
+    const ncertRaw = content.slice(ncertHeaderMatch.index! + ncertHeaderMatch[0].length, webHeaderMatch.index!).trim();
+    const webRaw = content.slice(webHeaderMatch.index! + webHeaderMatch[0].length).trim();
+    return {
+      hasSplit: true,
+      ncertContent: ncertRaw,
+      webContent: webRaw,
+    };
+  }
+
+  const isWebOnly =
+    content.toLowerCase().includes("outside the class 11 ncert curriculum") ||
+    content.toLowerCase().includes("outside the ncert curriculum") ||
+    !!webHeaderMatch;
+
+  return {
+    hasSplit: false,
+    isWebOnly,
+    content: content.replace(/##\s*(?:NCERT Curriculum Explanation|Supplementary Context from the Web)/gi, "").trim(),
+  };
+}
+
 function TeacherPageInner() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<TeacherSessionUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "ask" | "groups">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "ask" | "groups">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dumroo_teacher_active_tab");
+      if (saved === "ask" || saved === "dashboard" || saved === "groups") {
+        return saved;
+      }
+    }
+    return "dashboard";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("dumroo_teacher_active_tab", activeTab);
+    }
+  }, [activeTab]);
 
   // Dashboard Filters State
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("all");
@@ -185,6 +225,7 @@ function TeacherPageInner() {
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const isSelfCreatedChatRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -308,7 +349,9 @@ function TeacherPageInner() {
           const list = data.chats || [];
           setTeacherChats(list);
           if (list.length > 0 && !activeChatId) {
-            setActiveChatId(list[0].id);
+            const savedChatId = typeof window !== "undefined" ? localStorage.getItem("dumroo_teacher_active_chat") : null;
+            const targetChat = list.find((c: any) => c.id === savedChatId) || list[0];
+            setActiveChatId(targetChat.id);
           }
         }
       } catch (err) {
@@ -322,6 +365,7 @@ function TeacherPageInner() {
   useEffect(() => {
     if (!activeChatId) {
       setMessages([]);
+      setLoadingMessages(false);
       return;
     }
 
@@ -330,18 +374,38 @@ function TeacherPageInner() {
       return;
     }
 
+    let isCancelled = false;
+    setLoadingMessages(true);
+    setMessages([]); // Immediately clear previous chat content to prevent stale body flash
+
     async function loadMessages() {
       try {
         const res = await fetch(`/api/chats/${activeChatId}/messages`);
-        if (res.ok) {
+        if (res.ok && !isCancelled) {
           const data = await res.json();
           setMessages(data.messages || []);
         }
       } catch (err) {
-        console.error("Failed to load chat messages:", err);
+        if (!isCancelled) {
+          console.error("Failed to load chat messages:", err);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingMessages(false);
+        }
       }
     }
     loadMessages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeChatId]);
+
+  useEffect(() => {
+    if (activeChatId && typeof window !== "undefined") {
+      localStorage.setItem("dumroo_teacher_active_chat", activeChatId);
+    }
   }, [activeChatId]);
 
   useEffect(() => {
@@ -1232,7 +1296,15 @@ function TeacherPageInner() {
                               "{q.query}"
                             </div>
                             <div className="text-[10px] text-slate-500">
-                              Asked by {q.studentName || "Student"} · {new Date(q.createdAt).toLocaleDateString()}
+                              Asked by {q.studentName || "Student"}
+                              {(() => {
+                                const raw = q.lastAskedAt || q.createdAt;
+                                if (!raw) return "";
+                                const d = new Date(raw);
+                                return !isNaN(d.getTime())
+                                  ? ` · ${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
+                                  : "";
+                              })()}
                             </div>
                           </div>
                           <span className="shrink-0 text-[10px] uppercase font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
@@ -1443,7 +1515,12 @@ function TeacherPageInner() {
               {/* Message Feed */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="max-w-3xl mx-auto space-y-6">
-                  {messages.length === 0 ? (
+                  {loadingMessages ? (
+                    <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#1E4FF7]" />
+                      <span className="text-xs">Loading conversation...</span>
+                    </div>
+                  ) : messages.length === 0 ? (
                     <div className="py-16 text-center text-slate-500">
                       <div className="w-12 h-12 rounded-2xl bg-brand-gradient flex items-center justify-center text-white mx-auto mb-4 shadow-sm">
                         <BookOpen className="w-6 h-6" />
@@ -1482,19 +1559,104 @@ function TeacherPageInner() {
                                   {msg.content}
                                 </div>
                               ) : (
-                                <div className="bg-white border border-[#E6E8F0] rounded-2xl card-shadow p-6 space-y-5">
-                                  <div className="prose prose-slate max-w-none text-[#334155] leading-[1.75] text-[14.5px]">
-                                    <ReactMarkdown
-                                      remarkPlugins={[remarkGfm, remarkMath]}
-                                      rehypePlugins={[rehypeKatex]}
-                                    >
-                                      {msg.content}
-                                    </ReactMarkdown>
-                                  </div>
+                                <div className="space-y-4">
+                                  {(() => {
+                                    const parsed = splitTeacherSections(msg.content);
+
+                                    if (parsed.hasSplit) {
+                                      return (
+                                        <>
+                                          {/* NCERT SECTION CARD: 4px blue left border + Book icon */}
+                                          <div className="bg-white border border-[#E6E8F0] border-l-4 border-l-[#1E4FF7] rounded-2xl card-shadow p-6 space-y-4">
+                                            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                                              <div className="w-6 h-6 rounded-lg bg-blue-50 text-[#1E4FF7] flex items-center justify-center shrink-0">
+                                                <BookOpen className="w-3.5 h-3.5" />
+                                              </div>
+                                              <span className="font-heading font-bold text-xs uppercase tracking-wider text-[#0F172A]">
+                                                NCERT Curriculum Explanation
+                                              </span>
+                                            </div>
+                                            <div className="prose prose-slate max-w-none text-[#334155] leading-[1.75] text-[14.5px]">
+                                              <ReactMarkdown
+                                                remarkPlugins={[remarkGfm, remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                              >
+                                                {parsed.ncertContent}
+                                              </ReactMarkdown>
+                                            </div>
+                                          </div>
+
+                                          {/* WEB CONTEXT SECTION CARD: 4px orange left border + Globe icon */}
+                                          <div className="bg-white border border-[#E6E8F0] border-l-4 border-l-[#F5A623] rounded-2xl card-shadow p-6 space-y-4">
+                                            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                                              <div className="w-6 h-6 rounded-lg bg-amber-50 text-[#F5A623] flex items-center justify-center shrink-0">
+                                                <Globe className="w-3.5 h-3.5" />
+                                              </div>
+                                              <span className="font-heading font-bold text-xs uppercase tracking-wider text-[#0F172A]">
+                                                Supplementary Context from the Web
+                                              </span>
+                                            </div>
+                                            <div className="prose prose-slate max-w-none text-[#334155] leading-[1.75] text-[14.5px]">
+                                              <ReactMarkdown
+                                                remarkPlugins={[remarkGfm, remarkMath]}
+                                                rehypePlugins={[rehypeKatex]}
+                                              >
+                                                {parsed.webContent}
+                                              </ReactMarkdown>
+                                            </div>
+                                          </div>
+                                        </>
+                                      );
+                                    }
+
+                                    if (parsed.isWebOnly) {
+                                      return (
+                                        <div className="bg-white border border-[#E6E8F0] border-l-4 border-l-[#F5A623] rounded-2xl card-shadow p-6 space-y-4">
+                                          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                                            <div className="w-6 h-6 rounded-lg bg-amber-50 text-[#F5A623] flex items-center justify-center shrink-0">
+                                              <Globe className="w-3.5 h-3.5" />
+                                            </div>
+                                            <span className="font-heading font-bold text-xs uppercase tracking-wider text-[#0F172A]">
+                                              Web Research Answer
+                                            </span>
+                                          </div>
+                                          <div className="prose prose-slate max-w-none text-[#334155] leading-[1.75] text-[14.5px]">
+                                            <ReactMarkdown
+                                              remarkPlugins={[remarkGfm, remarkMath]}
+                                              rehypePlugins={[rehypeKatex]}
+                                            >
+                                              {parsed.content}
+                                            </ReactMarkdown>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div className="bg-white border border-[#E6E8F0] border-l-4 border-l-[#1E4FF7] rounded-2xl card-shadow p-6 space-y-4">
+                                        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                                          <div className="w-6 h-6 rounded-lg bg-blue-50 text-[#1E4FF7] flex items-center justify-center shrink-0">
+                                            <BookOpen className="w-3.5 h-3.5" />
+                                          </div>
+                                          <span className="font-heading font-bold text-xs uppercase tracking-wider text-[#0F172A]">
+                                            NCERT Curriculum Explanation
+                                          </span>
+                                        </div>
+                                        <div className="prose prose-slate max-w-none text-[#334155] leading-[1.75] text-[14.5px]">
+                                          <ReactMarkdown
+                                            remarkPlugins={[remarkGfm, remarkMath]}
+                                            rehypePlugins={[rehypeKatex]}
+                                          >
+                                            {parsed.content}
+                                          </ReactMarkdown>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {/* Sources Badge Row */}
                                   {msg.sources && msg.sources.length > 0 && (
-                                    <div className="pt-4 border-t border-[#E6E8F0]">
+                                    <div className="bg-white border border-[#E6E8F0] rounded-2xl card-shadow p-4">
                                       <div className="text-[11px] font-heading font-bold text-[#64748B] uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                         <BookOpen className="w-3.5 h-3.5" />
                                         <span>Curriculum Sources</span>
@@ -1514,7 +1676,7 @@ function TeacherPageInner() {
 
                                   {/* Web Sources Cards */}
                                   {msg.webSources && msg.webSources.length > 0 && (
-                                    <div className="pt-4 border-t border-[#E6E8F0]">
+                                    <div className="bg-white border border-[#E6E8F0] rounded-2xl card-shadow p-4">
                                       <div className="text-[11px] font-heading font-bold text-[#64748B] uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                         <Globe className="w-3.5 h-3.5 text-[#F5A623]" />
                                         <span>Web Sources</span>

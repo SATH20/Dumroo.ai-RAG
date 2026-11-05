@@ -19,7 +19,7 @@ if (fs.existsSync(envPath)) {
     if (eqIdx > 0) {
       const k = trimmed.slice(0, eqIdx).trim();
       const v = trimmed.slice(eqIdx + 1).trim();
-      if (!process.env[k]) process.env[k] = v;
+      process.env[k] = v;
     }
   }
 }
@@ -442,6 +442,9 @@ async function runEval() {
       }
 
       if (pass) passedCount++;
+
+      // 2000ms spacing to maintain steady API rate below RPM limits
+      await new Promise((r) => setTimeout(r, 2000));
 
       const citedChapters = sources.map((s) => `${s.book} Ch ${s.chapterNumber}`).join(", ") || "None";
 

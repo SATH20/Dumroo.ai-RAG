@@ -267,7 +267,8 @@ export async function GET(req: NextRequest) {
       .map(([query, data]) => ({
         query: query.charAt(0).toUpperCase() + query.slice(1),
         count: data.count,
-        lastAskedAt: data.lastAskedAt,
+        lastAskedAt: data.lastAskedAt || new Date().toISOString(),
+        createdAt: data.lastAskedAt || new Date().toISOString(),
       }))
       .sort((a, b) => b.count - a.count || new Date(b.lastAskedAt).getTime() - new Date(a.lastAskedAt).getTime())
       .slice(0, 15);
