@@ -1,13 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-for-build.supabase.co";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key-for-build";
 
-if (!supabaseUrl) {
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
   console.warn("Warning: NEXT_PUBLIC_SUPABASE_URL is not set.");
 }
 
-if (!supabaseServiceKey) {
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY is not set.");
 }
 
