@@ -232,4 +232,11 @@ Run these migrations in the **Supabase SQL Editor**:
 - `supabase/migrations/005_auth_roles_groups.sql` — Profiles, groups, group members, and RLS policies.
 - `supabase/migrations/006_chats_memory.sql` — Chats, messages, student facts, and memories.
 - `supabase/migrations/007_teacher_and_activity.sql` — Teacher mode, `is_demo` flag, web sources column, and analytics indexes.
+- `supabase/migrations/008_message_meta.sql` — Reopened-chat presentation metadata.
+
+## Demo data and limitations
+
+Dashboard uses seeded demo activity (`scripts/seed-activity.ts`). Demo accounts: `teacher@dumroo-demo.test`, `student1@dumroo-demo.test` through `student5@dumroo-demo.test`.
+
+Known limitations: answers are constrained by the available Class 11 NCERT corpus when web search is off; web search requires a configured Tavily key and returned sources can change over time.
 

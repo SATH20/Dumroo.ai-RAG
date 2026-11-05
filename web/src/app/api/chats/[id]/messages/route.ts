@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { data: messages, error: msgErr } = await supabaseServer
       .from("messages")
-      .select("id, role, content, sources, images, page_images, sections, created_at")
+      .select("id, role, content, sources, images, page_images, sections, meta, created_at")
       .eq("chat_id", id)
       .order("created_at", { ascending: true });
 
@@ -56,6 +56,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         images: m.images || [],
         pageImages: m.page_images || [],
         sections: m.sections || [],
+        webSources: m.meta?.webSources || [],
+        refusal: m.meta?.status === "refused",
+        cutoff: m.meta?.status === "cutoff",
         createdAt: m.created_at,
       })),
     });

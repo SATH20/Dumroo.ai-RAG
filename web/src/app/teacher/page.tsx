@@ -130,8 +130,9 @@ interface ChatMessage {
 }
 
 function splitTeacherSections(content: string) {
-  const ncertHeaderMatch = content.match(/##\s*NCERT Curriculum Explanation/i);
-  const webHeaderMatch = content.match(/##\s*Supplementary Context from the Web/i);
+  const heading = (title: string) => new RegExp(`(?:^|\\n)\\s*(?:#{1,6}\\s*|\\*{1,2}\\s*)?${title}(?:\\*{1,2})?\\s*:?\\s*(?=\\n|$)`, "i");
+  const ncertHeaderMatch = content.match(heading("NCERT Curriculum Explanation"));
+  const webHeaderMatch = content.match(heading("Supplementary Context from the Web"));
 
   if (ncertHeaderMatch && webHeaderMatch && (webHeaderMatch.index ?? 0) > (ncertHeaderMatch.index ?? 0)) {
     const ncertRaw = content.slice(ncertHeaderMatch.index! + ncertHeaderMatch[0].length, webHeaderMatch.index!).trim();
@@ -151,8 +152,12 @@ function splitTeacherSections(content: string) {
   return {
     hasSplit: false,
     isWebOnly,
-    content: content.replace(/##\s*(?:NCERT Curriculum Explanation|Supplementary Context from the Web)/gi, "").trim(),
+    content: content.replace(/(?:^|\n)\s*(?:#{1,6}\s*|\*{1,2}\s*)?(?:NCERT Curriculum Explanation|Supplementary Context from the Web)(?:\*{1,2})?\s*:?\s*(?=\n|$)/gi, "").trim(),
   };
+}
+
+function escapeMoneyDollars(content?: string) {
+  return (content || "").replace(/\$(?=\d{1,3}(,\d{3})+(\.\d+)?|\d+\.\d{2}\b)/g, "\\$");
 }
 
 function TeacherPageInner() {
@@ -178,7 +183,7 @@ function TeacherPageInner() {
   // Dashboard Filters State
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("all");
   const [selectedDays, setSelectedDays] = useState<number>(14);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   // Dashboard Data State
   const [statCards, setStatCards] = useState<StatCardsData>({
@@ -848,6 +853,8 @@ function TeacherPageInner() {
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantMsgId ? { ...m, isStreaming: false } : m))
             );
+            const title = query.trim().split(/\s+/).slice(0, 6).join(" ");
+            setTeacherChats((prev) => prev.map((c) => c.id === chatId && c.title === "New Chat" ? { ...c, title } : c));
           }
         }
       }
@@ -1042,7 +1049,7 @@ function TeacherPageInner() {
                     Questions Asked
                   </div>
                   <div className="text-3xl font-heading font-extrabold text-[#0F172A]">
-                    {statCards.totalQuestions}
+                    {dashboardLoading ? <span className="inline-block h-8 w-14 rounded bg-slate-100 animate-pulse" /> : statCards.totalQuestions}
                   </div>
                   <div className="text-[11px] text-[#64748B] mt-1">
                     Past {selectedDays} days
@@ -1059,7 +1066,7 @@ function TeacherPageInner() {
                     Answer Rate
                   </div>
                   <div className="text-3xl font-heading font-extrabold text-emerald-600">
-                    {statCards.answeredPercent}%
+                    {dashboardLoading ? <span className="inline-block h-8 w-14 rounded bg-slate-100 animate-pulse" /> : `${statCards.answeredPercent}%`}
                   </div>
                   <div className="text-[11px] text-[#64748B] mt-1">
                     {statCards.answeredCount} answered
@@ -1076,7 +1083,7 @@ function TeacherPageInner() {
                     Active Students
                   </div>
                   <div className="text-3xl font-heading font-extrabold text-[#0F172A]">
-                    {statCards.totalStudents}
+                    {dashboardLoading ? <span className="inline-block h-8 w-14 rounded bg-slate-100 animate-pulse" /> : statCards.totalStudents}
                   </div>
                   <div className="text-[11px] text-[#64748B] mt-1">
                     Engaging with RAG tutor
@@ -1093,7 +1100,7 @@ function TeacherPageInner() {
                     Not Covered Gaps
                   </div>
                   <div className="text-3xl font-heading font-extrabold text-amber-600">
-                    {statCards.notCoveredCount}
+                    {dashboardLoading ? <span className="inline-block h-8 w-14 rounded bg-slate-100 animate-pulse" /> : statCards.notCoveredCount}
                   </div>
                   <div className="text-[11px] text-[#64748B] mt-1">
                     Off-syllabus questions
@@ -1581,7 +1588,7 @@ function TeacherPageInner() {
                                                 remarkPlugins={[remarkGfm, remarkMath]}
                                                 rehypePlugins={[rehypeKatex]}
                                               >
-                                                {parsed.ncertContent}
+                                                {escapeMoneyDollars(parsed.ncertContent)}
                                               </ReactMarkdown>
                                             </div>
                                           </div>
@@ -1601,7 +1608,7 @@ function TeacherPageInner() {
                                                 remarkPlugins={[remarkGfm, remarkMath]}
                                                 rehypePlugins={[rehypeKatex]}
                                               >
-                                                {parsed.webContent}
+                                                {escapeMoneyDollars(parsed.webContent)}
                                               </ReactMarkdown>
                                             </div>
                                           </div>
@@ -1625,7 +1632,7 @@ function TeacherPageInner() {
                                               remarkPlugins={[remarkGfm, remarkMath]}
                                               rehypePlugins={[rehypeKatex]}
                                             >
-                                              {parsed.content}
+                                              {escapeMoneyDollars(parsed.content)}
                                             </ReactMarkdown>
                                           </div>
                                         </div>
@@ -1647,7 +1654,7 @@ function TeacherPageInner() {
                                             remarkPlugins={[remarkGfm, remarkMath]}
                                             rehypePlugins={[rehypeKatex]}
                                           >
-                                            {parsed.content}
+                                            {escapeMoneyDollars(parsed.content)}
                                           </ReactMarkdown>
                                         </div>
                                       </div>

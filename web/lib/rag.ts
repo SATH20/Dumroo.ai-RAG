@@ -948,6 +948,7 @@ ${
 }
 - Starting on the next line, provide a clear, student-friendly explanation with headings and bullet points where helpful.
 - Write all mathematical and scientific formulas in LaTeX: use inline $...$ for inline formulas and variables (e.g. $F = ma$, $\\Delta p$), and standalone $$...$$ on their own line for key equations or multi-line derivations.
+- Never use $ for money; write USD 126,198 instead.
 - Always finish every sentence and formula completely. Never leave equations or sentences half-written.
 ${hasTextbookMatch ? "- In the NCERT Curriculum section, every claim or formula MUST have an in-line citation referencing the source, for example [Physics Part 1, Ch 4, p. 54] or [Mathematics, Ch 7, p. 129]." : ""}`;
 

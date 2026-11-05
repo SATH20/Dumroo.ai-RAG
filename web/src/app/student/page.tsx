@@ -103,6 +103,7 @@ interface Message {
   images?: ImageItem[];
   pageImages?: PageImageItem[];
   sections?: SectionExport[];
+  webSources?: Array<{ title: string; url: string; content: string }>;
 }
 
 interface Chat {
@@ -272,7 +273,7 @@ function FormattedMessageContent({ content }: { content: string }) {
             ),
           }}
         >
-          {content}
+          {content.replace(/\$(?=\d{1,3}(,\d{3})+(\.\d+)?|\d+\.\d{2}\b)/g, "\\$")}
         </ReactMarkdown>
       </MarkdownErrorBoundary>
     </div>
@@ -688,6 +689,7 @@ function StudentDashboardInner() {
                       images: data.images || [],
                       pageImages: data.pageImages || [],
                       sections: data.sections || [],
+                      webSources: data.webSources || [],
                       standaloneQuery: data.standaloneQuery,
                     }
                   : m
@@ -744,6 +746,8 @@ function StudentDashboardInner() {
                 m.id === assistantMsgId ? { ...m, isStreaming: false } : m
               )
             );
+            const title = query.trim().split(/\s+/).slice(0, 6).join(" ");
+            setChats((prev) => prev.map((c) => c.id === targetChatId && c.title === "New Chat" ? { ...c, title } : c));
           }
         }
       }
@@ -840,8 +844,8 @@ function StudentDashboardInner() {
       }
     }
 
-    // Default fallback to fill 4 cards if fewer subjects
-    if (cards.length < 4) {
+    // Never suggest a subject the student is not enrolled in.
+    if (cards.length < 4 && enrolledKeys.length === 0) {
       const fallbacks = [
         {
           question: "Explain Newton's second law of motion and momentum",

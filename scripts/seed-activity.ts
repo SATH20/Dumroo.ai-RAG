@@ -509,7 +509,8 @@ async function seedActivity() {
     for (let q = 0; q < 27; q++) {
       // Pick random allowed subject
       const randomSubj = allowedSubjs[Math.floor(Math.random() * allowedSubjs.length)];
-      const subjKey = Object.keys(CURRICULUM_QUESTIONS).find((k) => randomSubj.name.includes(k)) || "physics";
+      const normalizedSubject = randomSubj.name === "maths" ? "mathematics" : randomSubj.name;
+      const subjKey = Object.keys(CURRICULUM_QUESTIONS).find((k) => normalizedSubject.includes(k)) || "physics";
       const subjChapters = chaptersBySubject.get(randomSubj.name) || chaptersBySubject.get("physics") || [];
 
       // Pick topic block
