@@ -902,9 +902,12 @@ Provide any broader perspective, modern applications, or supplementary context d
 
 COVERAGE RULE:
 - Your response's VERY FIRST line must be either [[COVERED]] or [[NOT_COVERED]].
-- If the question is answered by either the NCERT textbook excerpts or the Web Search Context, your VERY FIRST line MUST be [[COVERED]].
-- If the question asks about non-academic topics, recipes/cooking (e.g. pasta), general coding, sports, or anything not covered in the textbook excerpts, your VERY FIRST line MUST be [[NOT_COVERED]].
-- If neither the textbook excerpts nor the web search context provide information to answer the question, your VERY FIRST line must be [[NOT_COVERED]].
+${
+  webSources && webSources.length > 0
+    ? `- Web search is ENABLED with verified sources. Your response's VERY FIRST line MUST be [[COVERED]]. Do NOT output [[NOT_COVERED]] since web search information is provided to answer the question.`
+    : `- If the question is answered by the NCERT textbook excerpts, your VERY FIRST line MUST be [[COVERED]].
+- If the question asks about non-academic topics, recipes/cooking (e.g. pasta), general coding, sports, or anything not covered in the textbook excerpts, your VERY FIRST line MUST be [[NOT_COVERED]].`
+}
 - Starting on the next line, provide a clear, student-friendly explanation with headings and bullet points where helpful.
 - Write all mathematical and scientific formulas in LaTeX: use inline $...$ for inline formulas and variables (e.g. $F = ma$, $\\Delta p$), and standalone $$...$$ on their own line for key equations or multi-line derivations.
 - Always finish every sentence and formula completely. Never leave equations or sentences half-written.
@@ -968,9 +971,18 @@ Question: ${question}${querySuffix}`;
         buffer += text;
 
         if (buffer.includes("[[NOT_COVERED]]")) {
-          isCovered = false;
-          decisionMade = true;
-          break; // Stop immediately, do not yield any tokens to user on refusal!
+          if (webSearch && webSources.length > 0) {
+            isCovered = true;
+            decisionMade = true;
+            const cleanInitial = buffer.replace(MARKER_REGEX, "");
+            if (cleanInitial) {
+              yield { type: "token", data: { delta: cleanInitial } };
+            }
+          } else {
+            isCovered = false;
+            decisionMade = true;
+            break; // Stop immediately, do not yield any tokens to user on refusal!
+          }
         } else if (buffer.includes("[[COVERED]]")) {
           isCovered = true;
           decisionMade = true;
@@ -1002,7 +1014,7 @@ Question: ${question}${querySuffix}`;
     // Stream finished; if decision wasn't reached yet (short stream < 400 chars):
     if (!decisionMade) {
       if (buffer.includes("[[NOT_COVERED]]")) {
-        isCovered = false;
+        isCovered = (webSearch && webSources.length > 0);
       } else if (buffer.includes("[[COVERED]]")) {
         isCovered = true;
       } else {
