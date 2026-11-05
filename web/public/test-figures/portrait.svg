@@ -1,0 +1,16 @@
+<svg width="400" height="800" viewBox="0 0 400 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="800" fill="#F8FAFC" rx="16"/>
+  <rect x="2" y="2" width="396" height="796" stroke="#E2E8F0" stroke-width="4" rx="14"/>
+  <text x="200" y="60" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold" fill="#0F172A">PORTRAIT DIAGRAM (1:2)</text>
+  <text x="200" y="90" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#64748B">400 × 800 px · Physics Pendulum</text>
+  <line x1="200" y1="120" x2="200" y2="500" stroke="#1E4FF7" stroke-width="4" stroke-dasharray="8 8"/>
+  <line x1="200" y1="120" x2="110" y2="480" stroke="#6A5CFF" stroke-width="5"/>
+  <circle cx="200" cy="120" r="10" fill="#0F172A"/>
+  <circle cx="110" cy="480" r="32" fill="#F5A623" stroke="#D97706" stroke-width="4"/>
+  <text x="110" y="486" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="white">m</text>
+  <path d="M 160 520 Q 200 550 240 520" stroke="#94A3B8" stroke-width="3" fill="none"/>
+  <text x="200" y="580" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#334155">Simple Harmonic Motion</text>
+  <rect x="50" y="640" width="300" height="100" rx="12" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="2"/>
+  <text x="200" y="680" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1E4FF7">T = 2π √(L / g)</text>
+  <text x="200" y="710" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#64748B">NCERT Class 11 Physics · Chapter 13</text>
+</svg>

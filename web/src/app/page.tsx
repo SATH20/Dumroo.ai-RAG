@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/brand/Logo";
 
 export default function RootPage() {
   const router = useRouter();
@@ -27,8 +28,9 @@ export default function RootPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500 text-sm">
-      Loading Dumroo AI Tutor...
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center gap-5">
+      <Logo variant="compact" size="lg" />
+      <div className="w-6 h-6 border-2 border-[#1E4FF7] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }

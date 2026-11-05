@@ -25,6 +25,9 @@ web/out/
 build/
 web/build/
 
+# Scratch and temporary files
+scratch/
+
 # Ingestion cache and logs
 ingest/cache/
 ingest/logs/
