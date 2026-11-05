@@ -1,0 +1,16 @@
+[
+  {"number": 1, "title": "Units and Measurements", "start_page": 1, "end_page": 12},
+  {"number": 2, "title": "Motion in a Straight Line", "start_page": 13, "end_page": 26},
+  {"number": 3, "title": "Motion in a Plane", "start_page": 27, "end_page": 48},
+  {"number": 4, "title": "Laws of Motion", "start_page": 49, "end_page": 70},
+  {"number": 5, "title": "Work, Energy and Power", "start_page": 71, "end_page": 91},
+  {"number": 6, "title": "Systems of Particles and Rotational Motion", "start_page": 92, "end_page": 126},
+  {"number": 7, "title": "Gravitation", "start_page": 127, "end_page": 143},
+  {"number": 8, "title": "Mechanical Properties of Solids", "start_page": 167, "end_page": 179},
+  {"number": 9, "title": "Mechanical Properties of Fluids", "start_page": 180, "end_page": 201},
+  {"number": 10, "title": "Thermal Properties of Matter", "start_page": 202, "end_page": 225},
+  {"number": 11, "title": "Thermodynamics", "start_page": 226, "end_page": 243},
+  {"number": 12, "title": "Kinetic Theory", "start_page": 244, "end_page": 258},
+  {"number": 13, "title": "Oscillations", "start_page": 259, "end_page": 277},
+  {"number": 14, "title": "Waves", "start_page": 278, "end_page": 299}
+]

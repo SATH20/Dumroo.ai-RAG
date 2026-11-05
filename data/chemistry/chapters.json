@@ -1,0 +1,8 @@
+[
+  {"number": 1, "title": "Some Basic Concepts of Chemistry", "start_page": 1, "end_page": 28},
+  {"number": 2, "title": "Structure of Atom", "start_page": 29, "end_page": 73},
+  {"number": 3, "title": "Classification of Elements and Periodicity in Properties", "start_page": 74, "end_page": 99},
+  {"number": 4, "title": "Chemical Bonding and Molecular Structure", "start_page": 100, "end_page": 135},
+  {"number": 5, "title": "Thermodynamics", "start_page": 136, "end_page": 167},
+  {"number": 6, "title": "Equilibrium", "start_page": 168, "end_page": 220}
+]

@@ -1,0 +1,21 @@
+[
+  {"number": 1, "title": "The Living World", "start_page": 1, "end_page": 9},
+  {"number": 2, "title": "Biological Classification", "start_page": 10, "end_page": 22},
+  {"number": 3, "title": "Plant Kingdom", "start_page": 23, "end_page": 36},
+  {"number": 4, "title": "Animal Kingdom", "start_page": 37, "end_page": 54},
+  {"number": 5, "title": "Morphology of Flowering Plants", "start_page": 55, "end_page": 70},
+  {"number": 6, "title": "Anatomy of Flowering Plants", "start_page": 71, "end_page": 78},
+  {"number": 7, "title": "Structural Organisation in Animals", "start_page": 79, "end_page": 84},
+  {"number": 8, "title": "Cell: The Unit of Life", "start_page": 85, "end_page": 103},
+  {"number": 9, "title": "Biomolecules", "start_page": 104, "end_page": 119},
+  {"number": 10, "title": "Cell Cycle and Cell Division", "start_page": 120, "end_page": 130},
+  {"number": 11, "title": "Photosynthesis in Higher Plants", "start_page": 131, "end_page": 152},
+  {"number": 12, "title": "Respiration in Plants", "start_page": 153, "end_page": 165},
+  {"number": 13, "title": "Plant Growth and Development", "start_page": 166, "end_page": 180},
+  {"number": 14, "title": "Breathing and Exchange of Gases", "start_page": 181, "end_page": 192},
+  {"number": 15, "title": "Body Fluids and Circulation", "start_page": 193, "end_page": 204},
+  {"number": 16, "title": "Excretory Products and their Elimination", "start_page": 205, "end_page": 216},
+  {"number": 17, "title": "Locomotion and Movement", "start_page": 217, "end_page": 229},
+  {"number": 18, "title": "Neural Control and Coordination", "start_page": 230, "end_page": 238},
+  {"number": 19, "title": "Chemical Coordination and Integration", "start_page": 239, "end_page": 252}
+]
