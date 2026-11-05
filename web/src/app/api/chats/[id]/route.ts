@@ -15,8 +15,17 @@ async function getAuthUser(req: NextRequest) {
     },
   });
 
-  const { data: { user } } = await ssrClient.auth.getUser();
-  return user;
+  const { data } = await ssrClient.auth.getUser();
+  if (data?.user) return data.user;
+
+  const authHeader = req.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7).trim();
+    const { data: tokenData } = await supabaseServer.auth.getUser(token);
+    return tokenData?.user || null;
+  }
+
+  return null;
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +62,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
+
+    // Remove associated messages first to satisfy foreign key relationships
+    await supabaseServer
+      .from("messages")
+      .delete()
+      .eq("chat_id", id);
 
     const { error } = await supabaseServer
       .from("chats")

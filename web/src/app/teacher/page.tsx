@@ -32,6 +32,8 @@ import {
   Check,
   Calendar,
   Filter,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -180,6 +182,9 @@ function TeacherPageInner() {
   // Teacher Ask (Chat) State
   const [teacherChats, setTeacherChats] = useState<any[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const isSelfCreatedChatRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -483,10 +488,183 @@ function TeacherPageInner() {
         setTeacherChats((prev) => [data.chat, ...prev]);
         setActiveChatId(data.chat.id);
         setMessages([]);
+        if (mobileHistoryOpen) setMobileHistoryOpen(false);
       }
     } catch (err) {
       console.error("Failed to create chat:", err);
     }
+  };
+
+  // Rename Teacher Chat
+  const handleSaveRename = async (id: string) => {
+    const trimmed = renameTitle.trim();
+    if (!trimmed) {
+      setRenamingChatId(null);
+      setRenameTitle("");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/chats/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (res.ok) {
+        setTeacherChats((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c))
+        );
+        showToast("Discussion renamed");
+      } else {
+        showToast("Failed to rename discussion", "error");
+      }
+    } catch (err) {
+      console.error("Failed to rename chat:", err);
+      showToast("Failed to rename discussion", "error");
+    } finally {
+      setRenamingChatId(null);
+      setRenameTitle("");
+    }
+  };
+
+  // Delete Teacher Chat
+  const handleDeleteChat = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this discussion?")) return;
+
+    try {
+      const res = await fetch(`/api/chats/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setTeacherChats((prev) => {
+          const next = prev.filter((c) => c.id !== id);
+          if (activeChatId === id) {
+            const nextActive = next.length > 0 ? next[0].id : null;
+            setActiveChatId(nextActive);
+            if (!nextActive) {
+              setMessages([]);
+            }
+          }
+          return next;
+        });
+        showToast("Discussion deleted");
+      } else {
+        showToast("Failed to delete discussion", "error");
+      }
+    } catch (err) {
+      console.error("Failed to delete chat:", err);
+      showToast("Failed to delete discussion", "error");
+    }
+  };
+
+  const renderChatItem = (c: any, isMobile = false) => {
+    const isActive = c.id === activeChatId;
+    const isRenaming = c.id === renamingChatId;
+
+    if (isRenaming) {
+      return (
+        <div
+          key={c.id}
+          className="px-2 py-1.5 rounded-xl bg-slate-100 border border-[#1E4FF7] flex items-center gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="text"
+            autoFocus
+            value={renameTitle}
+            onChange={(e) => setRenameTitle(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={() => handleSaveRename(c.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveRename(c.id);
+              if (e.key === "Escape") {
+                setRenamingChatId(null);
+                setRenameTitle("");
+              }
+            }}
+            className="w-full bg-white text-[#0F172A] px-2 py-1 rounded text-xs border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#1E4FF7]"
+          />
+          <button
+            type="button"
+            onClick={() => handleSaveRename(c.id)}
+            className="p-1 text-[#1E4FF7] hover:bg-blue-50 rounded"
+            title="Save title"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRenamingChatId(null);
+              setRenameTitle("");
+            }}
+            className="p-1 text-slate-400 hover:bg-slate-200 rounded"
+            title="Cancel"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={c.id}
+        onClick={() => {
+          setActiveChatId(c.id);
+          if (isMobile) setMobileHistoryOpen(false);
+        }}
+        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
+          isActive
+            ? "bg-[#1E4FF7] text-white shadow-xs"
+            : "text-slate-700 hover:bg-slate-100"
+        }`}
+      >
+        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0 pr-1">
+          <MessageSquare
+            className={`w-3.5 h-3.5 shrink-0 ${
+              isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600"
+            }`}
+          />
+          <span className="truncate">{c.title || "Untitled Discussion"}</span>
+        </div>
+
+        <div
+          className={`flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 ${
+            isActive ? "text-white" : "text-slate-500"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRenamingChatId(c.id);
+              setRenameTitle(c.title || "");
+            }}
+            className={`p-1 rounded transition-colors ${
+              isActive
+                ? "hover:bg-white/20 hover:text-white text-white/90"
+                : "hover:bg-slate-200/80 hover:text-[#1E4FF7] text-slate-400"
+            }`}
+            title="Rename discussion"
+            aria-label="Rename discussion"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => handleDeleteChat(c.id, e)}
+            className={`p-1 rounded transition-colors ${
+              isActive
+                ? "hover:bg-red-500/30 hover:text-red-100 text-white/90"
+                : "hover:bg-red-50 hover:text-red-600 text-slate-400"
+            }`}
+            title="Delete discussion"
+            aria-label="Delete discussion"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const handleSendChat = async (e?: React.FormEvent, customQuestion?: string) => {
@@ -1153,44 +1331,87 @@ function TeacherPageInner() {
         {/* ===================== TAB 2: ASK (TEACHER CHAT) ===================== */}
         {activeTab === "ask" && (
           <div className="flex h-full overflow-hidden">
+            {/* Mobile Discussions Drawer */}
+            {mobileHistoryOpen && (
+              <div className="fixed inset-0 z-50 md:hidden flex">
+                <div
+                  className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+                  onClick={() => setMobileHistoryOpen(false)}
+                />
+                <div className="relative w-72 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col p-4 z-10 animate-in slide-in-from-left duration-200">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                    <div className="text-xs font-heading font-bold uppercase tracking-wider text-slate-700">
+                      Discussions
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMobileHistoryOpen(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleCreateTeacherChat}
+                    className="w-full btn-brand-pill py-2.5 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs mb-3"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New discussion</span>
+                  </button>
+
+                  <div className="flex-1 overflow-y-auto space-y-1">
+                    {teacherChats.map((c) => renderChatItem(c, true))}
+                    {teacherChats.length === 0 && (
+                      <div className="py-8 text-center text-slate-400 text-xs">
+                        No discussions yet. Click "New discussion" to start.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Sidebar of Teacher Conversations */}
-            <div className="w-64 bg-white border-r border-[#E6E8F0] p-4 hidden md:flex flex-col justify-between shrink-0">
-              <div className="space-y-3">
+            <div className="w-64 bg-white border-r border-[#E6E8F0] p-4 hidden md:flex flex-col shrink-0">
+              <div className="space-y-3 flex-1 flex flex-col min-h-0">
                 <button
                   onClick={handleCreateTeacherChat}
-                  className="w-full btn-brand-pill py-2.5 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  className="w-full btn-brand-pill py-2.5 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New discussion</span>
                 </button>
-                <div className="text-[11px] font-heading font-semibold uppercase text-slate-400 tracking-wider pt-2">
+                <div className="text-[11px] font-heading font-semibold uppercase text-slate-400 tracking-wider pt-2 shrink-0">
                   History
                 </div>
-                <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-220px)]">
-                  {teacherChats.map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => setActiveChatId(c.id)}
-                      className={`px-3 py-2 rounded-xl text-xs font-medium truncate cursor-pointer transition-all ${
-                        c.id === activeChatId
-                          ? "bg-[#1E4FF7] text-white shadow-xs"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      {c.title}
+                <div className="space-y-1 overflow-y-auto flex-1 pr-1">
+                  {teacherChats.map((c) => renderChatItem(c, false))}
+                  {teacherChats.length === 0 && (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      No discussions yet. Click "New discussion" to start.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Main Chat Workspace */}
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F7F8FC]">
-              {/* Toolbar with Web Search Toggle */}
-              <div className="h-13 px-6 bg-white border-b border-[#E6E8F0] flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#1E4FF7]" />
-                  <span className="text-xs font-heading font-bold text-[#0F172A]">
+              {/* Toolbar with Web Search Toggle & Mobile Menu Trigger */}
+              <div className="h-13 px-4 sm:px-6 bg-white border-b border-[#E6E8F0] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setMobileHistoryOpen(true)}
+                    className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-500 hover:text-[#0F172A] hover:bg-slate-100 transition-colors"
+                    title="Discussions"
+                    aria-label="Open discussions list"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
+                  <Sparkles className="w-4 h-4 text-[#1E4FF7] shrink-0" />
+                  <span className="text-xs font-heading font-bold text-[#0F172A] truncate">
                     Curriculum & Web Knowledge Assistant
                   </span>
                 </div>
