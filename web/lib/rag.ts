@@ -47,6 +47,7 @@ export interface RagSource {
 export interface RagImage {
   id: string;
   url: string;
+  thumbUrl?: string;
   pageNumber: number;
   width: number;
   height: number;
@@ -437,6 +438,7 @@ export async function runRagPipeline({
         images.push({
           id: img.id,
           url: `${STORAGE_BASE_URL}/${img.storage_path}`,
+          thumbUrl: `${STORAGE_BASE_URL}/${img.storage_path.replace(/\.[^.]+$/, "_thumb.webp")}`,
           pageNumber: img.page_number,
           width: img.width,
           height: img.height,
@@ -823,6 +825,7 @@ Request: ${question}`;
         ...sortedRawImages.slice(0, 8).map((img: any) => ({
           id: img.id,
           url: `${STORAGE_BASE_URL}/${img.storage_path}`,
+          thumbUrl: `${STORAGE_BASE_URL}/${img.storage_path.replace(/\.[^.]+$/, "_thumb.webp")}`,
           pageNumber: img.page_number,
           width: img.width,
           height: img.height,

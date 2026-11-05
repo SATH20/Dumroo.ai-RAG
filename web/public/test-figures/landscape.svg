@@ -1,0 +1,19 @@
+<svg width="1200" height="450" viewBox="0 0 1200 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="450" fill="#F8FAFC" rx="16"/>
+  <rect x="2" y="2" width="1196" height="446" stroke="#E2E8F0" stroke-width="4" rx="14"/>
+  <text x="600" y="50" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#0F172A">LANDSCAPE CHART (2.67 : 1)</text>
+  <text x="600" y="80" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#64748B">1200 × 450 px · Projectile Trajectory Graph</text>
+  <!-- Axes -->
+  <line x1="120" y1="360" x2="1100" y2="360" stroke="#0F172A" stroke-width="3"/>
+  <line x1="120" y1="360" x2="120" y2="120" stroke="#0F172A" stroke-width="3"/>
+  <text x="1100" y="395" text-anchor="end" font-family="sans-serif" font-size="14" font-weight="bold" fill="#475569">Horizontal Distance x (m) →</text>
+  <text x="80" y="140" text-anchor="end" font-family="sans-serif" font-size="14" font-weight="bold" fill="#475569">Height y (m) ↑</text>
+  <!-- Parabolic curve -->
+  <path d="M 120 360 Q 550 80 1020 360" stroke="#1E4FF7" stroke-width="5" fill="none"/>
+  <!-- Peak marker -->
+  <circle cx="550" cy="150" r="8" fill="#F5A623"/>
+  <text x="550" y="130" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold" fill="#D97706">H_max = u² sin²θ / 2g</text>
+  <!-- Range marker -->
+  <line x1="120" y1="400" x2="1020" y2="400" stroke="#64748B" stroke-width="2" stroke-dasharray="6 6"/>
+  <text x="570" y="425" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#1E4FF7">Range R = u² sin(2θ) / g</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg width="600" height="600" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="600" fill="#F8FAFC" rx="16"/>
+  <rect x="2" y="2" width="596" height="596" stroke="#E2E8F0" stroke-width="4" rx="14"/>
+  <text x="300" y="55" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold" fill="#0F172A">SQUARE FIGURE (1 : 1)</text>
+  <text x="300" y="85" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#64748B">600 × 600 px · Benzene Resonance Structure</text>
+  <!-- Hexagon ring -->
+  <polygon points="300,160 410,225 410,355 300,420 190,355 190,225" stroke="#7C3AED" stroke-width="6" fill="#F5F3FF"/>
+  <circle cx="300" cy="290" r="70" stroke="#7C3AED" stroke-width="4" stroke-dasharray="8 8" fill="none"/>
+  <text x="300" y="475" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#7C3AED">C₆H₆ (Delocalized π electrons)</text>
+  <text x="300" y="515" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#64748B">NCERT Class 11 Chemistry · Chapter 12</text>
+</svg>

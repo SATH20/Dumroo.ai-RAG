@@ -460,6 +460,26 @@ export async function* streamGeminiAnswer(
     }
   }
 
+  // If continuation ran but left an unclosed inline math delimiter across the splice point, balance it
+  if (continuationRan) {
+    const preCheck = checkAnswerCompleteness(fullGeneratedText.replace(/^\s*\[\[(?:NOT_)?COVERED\]\]\s*/i, ""));
+    if (!preCheck.complete && preCheck.reason.includes("Unbalanced inline LaTeX math")) {
+      const citeMatch = fullGeneratedText.match(/(\s*\[[^\]]+\]\s*\.?)$/);
+      if (citeMatch) {
+        const idx = fullGeneratedText.lastIndexOf(citeMatch[0]);
+        const repaired = fullGeneratedText.slice(0, idx).trimEnd() + "$ " + citeMatch[0].trimStart();
+        if (checkAnswerCompleteness(repaired.replace(/^\s*\[\[(?:NOT_)?COVERED\]\]\s*/i, "")).complete) {
+          fullGeneratedText = repaired;
+        }
+      } else {
+        const repaired = fullGeneratedText.trimEnd() + "$";
+        if (checkAnswerCompleteness(repaired.replace(/^\s*\[\[(?:NOT_)?COVERED\]\]\s*/i, "")).complete) {
+          fullGeneratedText = repaired;
+        }
+      }
+    }
+  }
+
   // Pure verification check without artificial token injection
   const cleanFinalForCheck = fullGeneratedText.replace(/^\s*\[\[(?:NOT_)?COVERED\]\]\s*/i, "");
   const finalCheck = checkAnswerCompleteness(cleanFinalForCheck);

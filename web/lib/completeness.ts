@@ -54,7 +54,9 @@ export function checkAnswerCompleteness(text: string): CompletenessResult {
 
   // Remove all $$...$$ blocks to check single $
   const withoutBlocks = trimmed.replace(/\$\$[\s\S]*?\$\$/g, "");
-  const singleDollarMatches = withoutBlocks.match(/(?<!\$)\$(?!\$)/g);
+  // Ignore escaped dollar signs \$
+  const withoutEscaped = withoutBlocks.replace(/\\(\$|\\)/g, "");
+  const singleDollarMatches = withoutEscaped.match(/(?<!\$)\$(?!\$)/g);
   const singleDollarCount = singleDollarMatches ? singleDollarMatches.length : 0;
   if (singleDollarCount % 2 !== 0) {
     return { complete: false, reason: `Unbalanced inline LaTeX math ($ count: ${singleDollarCount})` };
