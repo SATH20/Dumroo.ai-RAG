@@ -22,7 +22,7 @@ export function extractDurableFactDirect(message: string): string | null {
   }
 
   // "I find integration hard" / "I find calculus difficult"
-  const m1 = trimmed.match(/^i\s+find\s+([^.!?]+?)\s+(hard|difficult|confusing|tough|challenging)/i);
+  const m1 = trimmed.match(/(?:^|\band\s+)i\s+find\s+([^.!?]+?)\s+(hard|difficult|confusing|tough|challenging)/i);
   if (m1) {
     const topic = m1[1].trim();
     return `finds ${topic} hard`;
@@ -41,7 +41,7 @@ export function extractDurableFactDirect(message: string): string | null {
   }
 
   // "I have exams in March" / "My exams are in March"
-  const m4 = trimmed.match(/^(?:i\s+have\s+exams?|my\s+exams?\s+are)\s+in\s+([a-zA-Z]+)/i);
+  const m4 = trimmed.match(/(?:i\s+have\s+(?:an?\s+)?exams?|my\s+exams?\s+(?:are|is)|exam\s+is)\s+(?:in|next)\s+([^.!?]+)/i);
   if (m4) {
     return `exams in ${m4[1].trim()}`;
   }

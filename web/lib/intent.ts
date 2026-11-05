@@ -11,7 +11,7 @@ const SMALL_TALK_REGEX =
   /^(hi|hello|hey|good\s+(morning|afternoon|evening)|howdy|greetings|sup|what'?s\s+up|yo|thanks|thank\s+you|thx|ty|many\s+thanks|ok|okay|k|alright|cool|great|awesome|got\s+it|understood|sure|bye|goodbye|cya|see\s+ya|have\s+a\s+good\s+day|who\s+are\s+you|what\s+can\s+you\s+do|help|what\s+is\s+your\s+name)[.!?\s]*$/i;
 
 const PERSONAL_STATEMENT_REGEX =
-  /^(i\s+find|i\s+struggle\s+with|i\s+prefer|i\s+have\s+exams?|my\s+exams?|i['’]m\s+(weak|bad|good|slow)\s+at|i\s+don['’]t\s+understand|i['’]m\s+confused\s+by|i\s+hate|i\s+love)\b/i;
+  /^(remember\s+that\s+)?(?:i\s+find|i\s+struggle\s+with|i\s+prefer|i\s+have\s+(?:an?\s+)?exams?|my\s+exams?|i['’]m\s+(weak|bad|good|slow)\s+at|i\s+don['’]t\s+understand|i['’]m\s+confused\s+by|i\s+hate|i\s+love)\b/i;
 
 const QUESTION_PREFIX_REGEX =
   /^(what|why|how|when|where|which|who|explain|define|derive|calculate|prove|describe|give\s+(me\s+)?(an?\s+)?example|tell\s+me\s+about|can\s+you\s+explain|difference\s+between|is\s+there|are\s+there)\b/i;
@@ -127,6 +127,7 @@ export async function getPersonalReply(
   allowedSubjectIds?: string[]
 ): Promise<string> {
   const topic = extractTopicFromPersonalStatement(statement);
+  const acknowledgement = "Got it — I’ll remember that.";
   if (topic) {
     let topicFound = false;
     try {
@@ -149,18 +150,18 @@ export async function getPersonalReply(
     }
 
     if (topicFound) {
-      return `I understand that ${topic} can be challenging! Want me to explain ${topic} from your textbooks?`;
+      return `${acknowledgement} Want me to explain ${topic} from your textbooks?`;
     } else {
-      return `I understand that ${topic} can feel challenging! However, ${topic} is part of the Class 12 syllabus, so it isn't in your Class 11 syllabus. Let me know if you would like help with any of your Class 11 topics!`;
+      return acknowledgement;
     }
   }
 
   const lower = statement.toLowerCase();
   if (lower.includes("short answer") || lower.includes("concise") || lower.includes("bullet point")) {
-    return "Understood! I will keep my explanations concise, clear, and focused on key NCERT concepts.";
+    return acknowledgement;
   }
   if (lower.includes("exam") || lower.includes("test")) {
-    return "All the best with your upcoming exams! Which Class 11 topics or chapters would you like to review first?";
+    return acknowledgement;
   }
-  return "Thank you for sharing that with me! I've noted your preference. What topic from your Class 11 textbooks would you like to explore today?";
+  return acknowledgement;
 }

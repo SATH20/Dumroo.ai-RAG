@@ -92,6 +92,21 @@ async function clearDemoChats() {
     console.log(`Cleaned ${testLogs.length} test entries from query_logs.`);
   }
 
+  // Remove only today's test activity for Ananya, retaining the account and seeded rows.
+  const { data: ananya } = await supabaseServer.auth.admin.listUsers();
+  const ananyaUser = ananya?.users?.find((u) => u.email?.toLowerCase().includes("ananya"));
+  if (ananyaUser) {
+    const ananyaDayStart = "2026-11-05T18:30:00.000Z"; // 2026-11-06 Asia/Kolkata
+    const { data: ananyaChats } = await supabaseServer.from("chats").select("id").eq("user_id", ananyaUser.id).gte("created_at", ananyaDayStart);
+    const ananyaChatIds = (ananyaChats || []).map((c) => c.id);
+    if (ananyaChatIds.length) {
+      await supabaseServer.from("messages").delete().in("chat_id", ananyaChatIds);
+      await supabaseServer.from("chats").delete().in("id", ananyaChatIds);
+    }
+    await supabaseServer.from("query_logs").delete().eq("user_id", ananyaUser.id).gte("created_at", ananyaDayStart).eq("is_demo", false);
+    console.log(`Cleared today's Ananya chats (${ananyaChatIds.length}) and non-demo query logs.`);
+  }
+
   // 6. Verify 0 chats remain for all demo accounts
   const { data: remainingChats, error: remErr } = await supabaseServer
     .from("chats")

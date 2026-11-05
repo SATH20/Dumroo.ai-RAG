@@ -141,14 +141,19 @@ export async function GET(req: NextRequest) {
     // --- AGGREGATE 2: Questions Per Day (Line Chart) ---
     // Generate all dates in the requested range
     const dailyMap = new Map<string, { total: number; answered: number; refused: number }>();
+    const kolkataDateKey = (value: Date) => new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(value);
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
-      const dateKey = d.toISOString().split("T")[0];
+      const dateKey = kolkataDateKey(d);
       dailyMap.set(dateKey, { total: 0, answered: 0, refused: 0 });
     }
 
     for (const log of logRows) {
-      const dateKey = log.created_at.split("T")[0];
+      const createdAt = new Date(log.created_at);
+      if (Number.isNaN(createdAt.getTime())) continue;
+      const dateKey = kolkataDateKey(createdAt);
       const entry = dailyMap.get(dateKey) || { total: 0, answered: 0, refused: 0 };
       entry.total++;
       if (log.answered) entry.answered++;
@@ -267,8 +272,8 @@ export async function GET(req: NextRequest) {
       .map(([query, data]) => ({
         query: query.charAt(0).toUpperCase() + query.slice(1),
         count: data.count,
-        lastAskedAt: data.lastAskedAt || new Date().toISOString(),
-        createdAt: data.lastAskedAt || new Date().toISOString(),
+        lastAskedAt: data.lastAskedAt,
+        createdAt: data.lastAskedAt,
       }))
       .sort((a, b) => b.count - a.count || new Date(b.lastAskedAt).getTime() - new Date(a.lastAskedAt).getTime())
       .slice(0, 15);

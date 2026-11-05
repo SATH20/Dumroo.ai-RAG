@@ -208,6 +208,7 @@ export async function POST(req: NextRequest) {
             images: [],
             page_images: [],
             sections: [],
+            meta: { status: "answered" },
           });
         }
       }
@@ -254,6 +255,7 @@ export async function POST(req: NextRequest) {
             images: [],
             page_images: [],
             sections: [],
+            meta: { status: "answered" },
           });
         }
       }
@@ -300,6 +302,7 @@ export async function POST(req: NextRequest) {
             images: [],
             page_images: [],
             sections: [],
+            meta: { status: "refused" },
           });
         }
       }
@@ -359,6 +362,7 @@ export async function POST(req: NextRequest) {
           images: [],
           page_images: [],
           sections: [],
+          meta: { status: "refused" },
         });
       }
 
@@ -393,6 +397,7 @@ export async function POST(req: NextRequest) {
 
     let assistantFullText = "";
     const meta = result.metadata;
+    let persistedIsCutoff = false;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -462,6 +467,7 @@ export async function POST(req: NextRequest) {
                 }
               }
               const donePayload = { ...evt.data, cutoff: isCutoff, facts: updatedFacts };
+              persistedIsCutoff = isCutoff;
               controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify(donePayload)}\n\n`));
             } else {
               controller.enqueue(encoder.encode(`event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`));
@@ -481,6 +487,7 @@ export async function POST(req: NextRequest) {
               images: meta.images || [],
               page_images: meta.pageImages || [],
               sections: meta.sections || [],
+              meta: { webSources: meta.webSources || [], status: persistedIsCutoff ? "cutoff" : "answered" },
             };
             if (meta.webSources && meta.webSources.length > 0) {
               msgPayload.web_sources = meta.webSources;
@@ -489,6 +496,11 @@ export async function POST(req: NextRequest) {
             let { error: msgErr } = await supabaseServer.from("messages").insert(msgPayload);
             if (msgErr && msgErr.message?.includes("web_sources")) {
               delete msgPayload.web_sources;
+              const retry = await supabaseServer.from("messages").insert(msgPayload);
+              msgErr = retry.error;
+            }
+            if (msgErr && msgErr.message?.includes("meta")) {
+              delete msgPayload.meta;
               await supabaseServer.from("messages").insert(msgPayload);
             }
 
