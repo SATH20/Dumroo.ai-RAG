@@ -1,242 +1,197 @@
-# NCERT Textbook Ingestion Pipeline for Supabase RAG
+# Textbook RAG for Teachers and Students
 
-An automated, high-accuracy ingestion pipeline that parses, cleans, OCR-repairs, chunks, embeds, and loads NCERT textbooks into Supabase (PostgreSQL with `pgvector` and Supabase Storage).
+Ask a question, get an answer straight from the NCERT Class 11 textbook, with the exact page number and the actual figure from that page. If the book doesn't cover it, the app says so instead of making something up.
 
----
+Built for the Dumroo AI internship take-home.
 
-## 📋 Features
-
-- **Garble Detection & OCR Fallback**: Automatically evaluates font encoding quality on every page. Broken fonts are rendered at 250 DPI and repaired using Tesseract OCR.
-- **Printed Page Number Alignment**: Discovers the real printed book page numbers (via header/footer detection and offset interpolation) rather than relying on PDF page indices.
-- **Hierarchical Chapter & Section Parsing**: Detects chapters and sections (`^\d+(\.\d+)+\s+[A-Za-z]`), maintaining context metadata across all chunks.
-- **Semantic Chunking**: Emits ~500 token chunks with 50-token overlap, respecting paragraph/sentence boundaries and never crossing chapter boundaries.
-- **Figure & Diagram Extraction**: Filters noise, icons, and repeated decorative elements while uploading meaningful textbook figures to Supabase Storage (`textbook-images`).
-- **Gemini Embeddings**: Generates 768-dimensional document retrieval embeddings with exponential backoff and jitter.
-- **Idempotency & Verification**: `--force` clears subject data before re-ingesting; built-in automated reports inspect random chunks and verify RPC retrieval functions.
+**Live demo:** https://dumroo-rag.vercel.app  
+**Demo video:** https://www.loom.com/share/f0d51a2f8a784e399a2050233d73ee1b
 
 ---
 
-## 🛠️ Step 0: Setup & Prerequisites
+## What it does
 
-### 1. Environment & Tesseract OCR
-- **Python**: 3.11+
-- **Tesseract OCR Binary**:
-  - **Windows**: Install from [UB-Mannheim Tesseract Releases](https://github.com/UB-Mannheim/tesseract/wiki). The default install path is `C:\Program Files\Tesseract-OCR\tesseract.exe`.
-  - Check installation:
-    ```powershell
-    tesseract --version
-    ```
+### For students
+- Answers come only from the textbooks they're enrolled in (Physics, Chemistry, Biology, Maths, History).
+- Every answer cites the chapter, section and printed page number, and shows the relevant diagrams from the book. Tap a figure to open it full size.
+- Questions the books don't cover (or subjects the student isn't assigned) get a clear "not covered in your textbooks" reply.
+- Typos are fine. "solid liquid weight liquid gas" still finds the right section.
+- Multiple chats, each saved and restored after a reload.
+- Light memory: tell it "I prefer brief answers" and it remembers.
 
-### 2. Python Dependencies
-Install required packages:
+### For teachers
+- A dashboard: questions per day, questions per subject, most-asked chapters, and a list of syllabus gaps (questions the books couldn't answer).
+- A student roster with each student's activity and the questions they asked.
+- Create students and manage subject groups.
+- A teacher chat with an optional web search toggle. With it on, the answer is split into the NCERT explanation and a separate "from the web" section with source links. With it off, it stays inside the textbooks.
+- Students' private chats and memory are never visible to teachers, only logged question text and cited chapters.
+
+---
+
+## How it works
+
+```text
+NCERT PDFs
+    │  PyMuPDF text extraction (Tesseract OCR for pages with broken fonts)
+    ▼
+Clean pages ──► chapters / sections ──► ~500-token chunks (50 overlap)
+    │                                          │
+    │  figures + page images → Supabase Storage│  Gemini embeddings (768-dim)
+    ▼                                          ▼
+Supabase Postgres + pgvector
+    │
+    Question ─► intent check ─► match_chunks (similarity threshold)
+    │                           grouped by section
+    ─► Gemini answer, streamed
+        ├─► COVERED ────► answer + citations + figures
+        └─► NOT COVERED ─► polite refusal (students)
+```
+
+A few decisions worth knowing about:
+- **Real page numbers.** PDF page indexes don't match the numbers printed in the book. The ingestion pipeline finds the printed numbers from headers and footers, so citations match what a student sees in their copy.
+- **OCR only where needed.** Each page is checked for garbled font encoding. Bad pages are rendered at 250 DPI and read with Tesseract; clean pages are left alone.
+- **Chunks never cross chapters,** and keep their chapter and section context so answers can cite properly.
+- **Refusals are deliberate.** Retrieval has a similarity threshold, and the model must mark each answer as covered or not covered. Off-topic questions ("who won the FIFA world cup") are refused for students.
+- **Access control lives in the database.** Supabase Row Level Security and server-side role checks, not just hidden buttons.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+| :--- | :--- |
+| **Frontend** | Next.js (App Router), TypeScript, Tailwind, Recharts |
+| **Backend / DB** | Supabase: Postgres + pgvector, Auth, Storage, RLS |
+| **Ingestion** | Python 3.11+, PyMuPDF, Tesseract, tiktoken |
+| **Models** | Gemini (embeddings and chat, with a fallback chain across models) |
+| **Web search** | Tavily (teacher chat only) |
+| **Hosting** | Vercel |
+
+---
+
+## Try it
+
+All demo accounts use the password `Demo@12345`. The login page has one-click buttons that fill them in.
+
+| Role | Email | Can see |
+| :--- | :--- | :--- |
+| **Teacher** | `teacher@dumroo-demo.test` | Everything |
+| **Student 1** | `student1@dumroo-demo.test` | Physics + Maths |
+| **Student 2** | `student2@dumroo-demo.test` | Chemistry + Biology |
+| **Student 3** | `student3@dumroo-demo.test` | History |
+| **Student 4** | `student4@dumroo-demo.test` | All five subjects |
+| **Student 5** | `student5@dumroo-demo.test` | Maths |
+
+### Things to try:
+- Log in as Student 2 and ask *"Explain the light reaction in photosynthesis"*. You'll get an answer with page citations and the figure.
+- Ask that same student *"Who is Genghis Khan?"*. It's a History topic, and Student 2 isn't enrolled in History, so it refuses.
+- Log in as the teacher, open Ask, and compare a question with web search on and off.
+
+---
+
+## Run it yourself
+
+### 1. Supabase
+- Create a project and enable the vector extension.
+- In the SQL Editor, run the migrations in `supabase/migrations/` in order:
+  - `001_init.sql`: textbook schema and search functions
+  - `005_auth_roles_groups.sql`: profiles, groups, RLS
+  - `006_chats_memory.sql`: chats, messages, memory
+  - `007_teacher_and_activity.sql`: teacher mode, demo flag, web sources, analytics indexes
+  - `008_message_meta.sql`: saved presentation data for reopened chats
+- Create a public Storage bucket called `textbook-images`.
+
+### 2. Ingest the textbooks
+Put the PDFs in `data/<subject>/` (physics, chemistry, biology, maths, history). Preliminaries, appendices and answer files (`ps.pdf`, `a1.pdf`, `an.pdf`) are skipped automatically. You need [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) installed for the OCR fallback.
+
 ```bash
 pip install pymupdf pytesseract supabase google-genai python-dotenv tqdm tiktoken pillow
 ```
 
-### 3. Supabase Dashboard Steps
-1. **Create Project**: Go to [Supabase](https://supabase.com/) and create a new project.
-2. **Enable Vector Extension**:
-   - In your project dashboard, navigate to **Database** -> **Extensions**.
-   - Search for `vector` and click **Enable** (or run `CREATE EXTENSION IF NOT EXISTS vector;` in SQL Editor).
-3. **Run Migration**:
-   - Navigate to the **SQL Editor** in your Supabase dashboard.
-   - Open `supabase/migrations/001_init.sql`, copy its entire content, paste it into the editor, and click **Run**.
-4. **Create Storage Bucket**:
-   - Navigate to **Storage** in the sidebar.
-   - Click **New bucket**.
-   - Set the bucket name to: `textbook-images`.
-   - Toggle **Public bucket** to `ON` (so image URLs can be accessed by student clients).
-   - Click **Save**.
-
-### 4. Configure Secrets
 Create `ingest/.env` (see `ingest/.env.example`):
 ```env
 SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 GEMINI_API_KEY=your_gemini_api_key
 ```
-> [!NOTE]
-> Use the **`service_role`** key (from Project Settings -> API) so that the ingestion script can bypass RLS for batch inserts and storage uploads.
 
----
-
-## 📁 Data Layout
-
-Place textbooks in `data/<subject>/`:
-```
-data/
-├── maths/
-│   ├── kemh101.pdf
-│   ├── kemh102.pdf
-│   ├── meta.json          # (Optional) e.g. {"title": "Mathematics", "part": null, "class": 11}
-│   └── chapters.json      # (Optional override) e.g. [{"number":1,"title":"Sets","start_page":1,"end_page":28}]
-├── physics/
-├── chemistry/
-├── biology/
-└── history/
-```
-Files ending in `ps.pdf`, `a1.pdf`, `an.pdf` (preliminaries, appendices, answers) are automatically skipped.
-
----
-
-## 🚀 Usage
-
-Execute commands from the repository root:
-
-### 1. Dry Run (Quality Check First)
-Extract, chunk, check for garbles, and generate verification reports without touching Supabase or writing to storage:
+Then, from the repo root:
 ```bash
-python -m ingest.ingest --subject maths --dry-run
+python -m ingest.ingest --subject maths --dry-run  # check quality first, touches nothing
+python -m ingest.ingest --subject maths            # ingest one subject
+python -m ingest.ingest --subject maths --force    # wipe and re-ingest that subject
+python -m ingest.ingest --all                      # everything
 ```
 
-### 2. Live Ingestion
-Run live ingestion for a specific subject:
+### 3. Run the app
 ```bash
-python -m ingest.ingest --subject maths
+cd web
+npm install
+cp .env.example .env.local  # fill in your Supabase, Gemini and Tavily keys
+npm run dev
 ```
 
-### 3. Force Re-ingestion
-Deletes all existing records and storage images for the subject, then ingests fresh:
-```bash
-python -m ingest.ingest --subject maths --force
-```
+Keep secret keys server-side only. Never expose them with a `NEXT_PUBLIC_` prefix. Deployed on Vercel with the project root set to `web`.
 
-### 4. Ingest All Subjects
+### 4. Demo data (optional)
 ```bash
-python -m ingest.ingest --all
+npx tsx scripts/seed-activity.ts    # fills the teacher dashboard with demo activity
+npx tsx scripts/clear-demo-chats.ts  # clears demo chats
 ```
 
 ---
 
-## 🔍 Verifying Data in Supabase SQL Editor
+## Checking the data
 
-Run these queries in the **Supabase SQL Editor** to verify the ingested textbook data:
+Run these in the Supabase SQL Editor to confirm ingestion worked:
 
-### 1. Count Records per Subject
 ```sql
+-- Chapters, chunks and images per book
 SELECT 
-    s.name AS subject,
-    b.title AS book,
-    COUNT(DISTINCT c.id) AS total_chapters,
-    COUNT(DISTINCT ch.id) AS total_chunks,
-    COUNT(DISTINCT img.id) AS total_images
-FROM subjects s
-LEFT JOIN books b ON b.subject_id = s.id
-LEFT JOIN chapters c ON c.book_id = b.id
-LEFT JOIN chunks ch ON ch.book_id = b.id
-LEFT JOIN images img ON img.book_id = b.id
+    s.name AS subject, 
+    b.title AS book, 
+    COUNT(DISTINCT c.id) AS chapters, 
+    COUNT(DISTINCT ch.id) AS chunks, 
+    COUNT(DISTINCT img.id) AS images 
+FROM subjects s 
+LEFT JOIN books b ON b.subject_id = s.id 
+LEFT JOIN chapters c ON c.book_id = b.id 
+LEFT JOIN chunks ch ON ch.book_id = b.id 
+LEFT JOIN images img ON img.book_id = b.id 
 GROUP BY s.name, b.title;
-```
 
-### 2. Test Semantic Search via `match_chunks`
-```sql
--- Retrieve top 5 chunks matching a query vector
+-- Top 5 closest chunks (using an existing chunk as the query vector)
 SELECT 
-    similarity,
-    chapter_number,
-    chapter_title,
-    section_title,
-    page_number,
-    page_end,
-    LEFT(content, 150) AS snippet
-FROM match_chunks(
-    query_embedding := (SELECT embedding FROM chunks LIMIT 1),
-    subject_ids := NULL,
-    k := 5
-);
-```
-
-### 3. Retrieve Entire Section in Order via `get_section`
-```sql
-SELECT 
-    chunk_index,
-    page_number,
-    token_count,
-    LEFT(content, 120) AS content_preview
-FROM get_section(
-    p_chapter_id := (SELECT id FROM chapters LIMIT 1),
-    p_section_title := (SELECT section_title FROM chunks WHERE section_title != '' LIMIT 1)
-);
-```
-
-### 4. Retrieve Chunks by Page Range via `get_chapter_pages`
-```sql
-SELECT 
-    chunk_index,
-    page_number,
-    section_title,
-    LEFT(content, 100) AS preview
-FROM get_chapter_pages(
-    p_chapter_id := (SELECT id FROM chapters LIMIT 1),
-    p_from := 1,
-    p_to := 10
+    similarity, 
+    chapter_title, 
+    section_title, 
+    page_number, 
+    LEFT(content, 150) AS snippet 
+FROM match_chunks( 
+    query_embedding := (SELECT embedding FROM chunks LIMIT 1), 
+    subject_ids := NULL, 
+    k := 5 
 );
 ```
 
 ---
 
-## 👥 Demo Accounts & Roles (Task C)
+## Honest notes and limitations
 
-All accounts share the default password: **`Demo@12345`**.
-
-| Role | Email | Name | Enrolled Subjects / Access |
-| :--- | :--- | :--- | :--- |
-| **Teacher** | `teacher@dumroo-demo.test` | Prof. Sharma | **All Subjects** (Physics, Maths, Chemistry, Biology, History) |
-| **Student 1** | `student1@dumroo-demo.test` | Student 1 | **Physics + Maths** |
-| **Student 2** | `student2@dumroo-demo.test` | Student 2 | **Chemistry + Biology** |
-| **Student 3** | `student3@dumroo-demo.test` | Student 3 | **History only** |
-| **Student 4** | `student4@dumroo-demo.test` | Student 4 | **All Five Subjects** |
-| **Student 5** | `student5@dumroo-demo.test` | Student 5 | **Maths only** |
-
-- **Student portal**: `/student`
-- **Teacher portal**: `/teacher`
-- **Login page**: `/login` (includes 1-click quick-fill buttons for each demo account)
+- **The dashboard is seeded.** The teacher dashboard shows demo activity generated by `scripts/seed-activity.ts` (rows are flagged `is_demo = true`), mixed with whatever real questions get asked. There wasn't a real class to generate real usage.
+- **Free-tier limits.** Gemini's free tier can rate-limit, so answers are sometimes slower, and the app falls back across models when that happens.
+- **Textbook-only means textbook-only.** With web search off, answers are limited to the Class 11 NCERT books in the database. With it on, web results are clearly separated and their sources can change over time.
+- **Figure matching isn't perfect.** Figures are matched by page and topic, so now and then a neighbouring diagram shows up instead of the ideal one.
+- **Web search needs a Tavily key.** Without one, the toggle won't return results.
 
 ---
 
-## 👩‍🏫 Teacher Side & Analytics (Task D)
+## Repo layout
 
-The `/teacher` portal provides educators with insights into student engagement, syllabus gaps, real-time web-augmented answers, and group management. Student routes are protected by middleware and server-side role validation.
-
-### 1. Teacher Dashboard (`/teacher` -> Dashboard tab)
-- **Filters**: Subject filter (All or specific subject) and time window selector (Last 7, 14, or 30 days).
-- **Stat Cards**: Total Enrolled Students, Questions Asked, Answered Rate (%), and Syllabus Gaps (refused/not covered questions).
-- **Interactive Visualizations (Recharts)**:
-  - *Daily Activity*: Interactive line chart showing question volume trends over time.
-  - *Subject Breakdown*: Bar chart showing student inquiry distribution across subjects.
-- **Most Asked Chapters**: Ranked table with inline volume indicator bars and click-to-drill-down modal showing the exact student queries asked for that chapter.
-- **Syllabus Gaps ("Not Covered by Textbooks")**: Frequency-ranked table of questions outside the NCERT curriculum with last-asked dates.
-- **Student Study Activity**: Complete student roster with assigned groups, total questions, last active timestamp, top 3 chapters studied, and click-to-inspect query logs.
-  - *Privacy Protection*: Only logged query text and cited chapters are displayed; student memory facts and private chat conversations are strictly hidden from teachers.
-
-### 2. Teacher Chat with Tavily Web Search (`/teacher` -> Ask tab)
-- Dedicated chat interface running in `teacher` mode.
-- Access to all subjects across the entire curriculum without student group constraints.
-- **Tavily Web Search**: Toggleable search button that queries the live web via Tavily API, synthesizing NCERT textbook context with external web citations and source cards.
-
-### 3. Students & Groups Management (`/teacher` -> Students & Groups tab)
-- Roster of all subject cohorts and sections.
-- Member count and student list per group.
-- 1-click Add/Remove student membership controls.
-
-### 4. Realistic Demo Activity Logs (`is_demo = true`)
-- `scripts/seed-activity.ts` generates ~150 realistic `query_logs` rows distributed over the last 14 days across the 5 demo students, adhering strictly to each student's enrolled subjects with curriculum-aligned questions and syllabus gaps.
-- All seeded records carry `is_demo: true` to distinguish them from live test queries.
-
----
-
-## 🗄️ Database Migrations
-
-Run these migrations in the **Supabase SQL Editor**:
-- `supabase/migrations/001_init.sql` — Core textbook schema (`subjects`, `books`, `chapters`, `chunks`, `images`, `page_images`, `match_chunks`, `get_section`, `get_chapter_pages`).
-- `supabase/migrations/005_auth_roles_groups.sql` — Profiles, groups, group members, and RLS policies.
-- `supabase/migrations/006_chats_memory.sql` — Chats, messages, student facts, and memories.
-- `supabase/migrations/007_teacher_and_activity.sql` — Teacher mode, `is_demo` flag, web sources column, and analytics indexes.
-- `supabase/migrations/008_message_meta.sql` — Reopened-chat presentation metadata.
-
-## Demo data and limitations
-
-Dashboard uses seeded demo activity (`scripts/seed-activity.ts`). Demo accounts: `teacher@dumroo-demo.test`, `student1@dumroo-demo.test` through `student5@dumroo-demo.test`.
-
-Known limitations: answers are constrained by the available Class 11 NCERT corpus when web search is off; web search requires a configured Tavily key and returned sources can change over time.
-
+```text
+ingest/               Python ingestion pipeline (extract, OCR, chunk, embed, upload)
+supabase/migrations/  SQL schema, search functions, RLS
+web/                  Next.js app (student + teacher portals, API routes)
+scripts/              Demo seeding and cleanup
+data/<subject>/       Textbook PDFs (git-ignored)
+```
