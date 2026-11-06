@@ -1304,14 +1304,6 @@ function TeacherPageInner() {
                             </div>
                             <div className="text-[10px] text-slate-500">
                               Asked by {q.studentName || "Student"}
-                              {(() => {
-                                const raw = q.lastAskedAt || q.createdAt;
-                                if (!raw) return "";
-                                const d = new Date(raw);
-                                return !isNaN(d.getTime())
-                                  ? ` · ${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
-                                  : "";
-                              })()}
                             </div>
                           </div>
                           <span className="shrink-0 text-[10px] uppercase font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
